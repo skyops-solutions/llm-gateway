@@ -1,0 +1,26 @@
+groups:
+  - name: llm-gateway
+    rules:
+      - alert: TenantBudgetHalfUsed
+        expr: gateway_budget_used_ratio >= 0.5
+        labels: {severity: warning}
+        annotations:
+          summary: "Client {{ $labels.tenant }} used over 50% of the monthly AI budget"
+      - alert: TenantBudgetExhausted
+        expr: gateway_budget_used_ratio >= 1
+        labels: {severity: critical}
+        annotations:
+          summary: "Client {{ $labels.tenant }} hit the budget hard stop, requests are blocked"
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(gateway_requests_total{status="upstream_failed"}[5m]))
+            / clamp_min(sum(rate(gateway_requests_total[5m])), 1e-9) > 0.05
+        for: 5m
+        labels: {severity: critical}
+        annotations:
+          summary: "More than 5% of AI requests fail on all providers"
+      - alert: ProviderFallbackActive
+        expr: sum by (route, from_provider) (increase(gateway_fallback_total[10m])) > 10
+        labels: {severity: warning}
+        annotations:
+          summary: "Primary provider {{ $labels.from_provider }} is failing, traffic goes to fallback"

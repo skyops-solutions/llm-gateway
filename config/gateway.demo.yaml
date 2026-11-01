@@ -1,0 +1,37 @@
+# Demo config: providers point at the local mock upstream (tools/mock_llm.py). No keys, no cost.
+# Model names and prices below are DEMO values, not real provider prices.
+
+providers:
+  mock-a:
+    type: anthropic
+    base_url: http://mock:9000/mock-a
+  mock-b:
+    type: openai_compat
+    base_url: http://mock:9000/mock-b/v1
+
+routes:
+  support-bot:
+    - {provider: mock-a, model: demo-fast}
+    - {provider: mock-b, model: demo-backup}
+
+prices:
+  demo-fast: {input_per_mtok: 1.0, output_per_mtok: 5.0}
+  demo-backup: {input_per_mtok: 0.5, output_per_mtok: 2.0}
+
+tenants:
+  acme-dental:
+    name: Acme Dental (site chatbot)
+    key_sha256: 2bd191576fb49947a4901dffd19232bbf8cf44afc3957add9a91ca76ae5ca8ae  # demo-key-acme-dental
+    allowed_routes: [support-bot]
+    monthly_budget_usd: 5
+    rate_limit_per_min: 100000
+    cache: true
+    pii_masking: true
+  northwind-travel:
+    name: Northwind Travel (trip planner)
+    key_sha256: 1311e8868d3b2fd085949ebc6ee6049e93a3624792213420d1d6b857b0d36e50  # demo-key-northwind-travel
+    allowed_routes: [support-bot]
+    monthly_budget_usd: 100
+    rate_limit_per_min: 100000
+    cache: false
+    pii_masking: false

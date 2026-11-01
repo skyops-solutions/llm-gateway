@@ -1,0 +1,6 @@
+apiVersion: v2
+name: llm-gateway
+description: LLM gateway with per-client budgets, provider fallback, cache and rate limits
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

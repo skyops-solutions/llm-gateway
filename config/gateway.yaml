@@ -1,0 +1,52 @@
+# Example gateway config. One file: providers, routes (what clients call), prices, tenants.
+# Clients call a route name as "model". The gateway tries the targets in order:
+# the first one is primary (retried once), the rest are fallbacks.
+
+providers:
+  anthropic:
+    type: anthropic
+    api_key_env: ANTHROPIC_API_KEY
+  openai:
+    type: openai_compat
+    base_url: https://api.openai.com/v1
+    api_key_env: OPENAI_API_KEY
+  gemini:
+    type: openai_compat
+    base_url: https://generativelanguage.googleapis.com/v1beta/openai
+    api_key_env: GEMINI_API_KEY
+
+routes:
+  support-bot:
+    - {provider: anthropic, model: claude-haiku-5-5}
+    - {provider: gemini, model: gemini-2.5-flash}
+  smart:
+    - {provider: anthropic, model: claude-sonnet-5-5}
+    - {provider: openai, model: gpt-4o}
+
+# USD per 1M tokens. Fill from each provider's current pricing page before use.
+# A model with no price is still served, but counted in gateway_unpriced_requests_total and costs $0 in budgets.
+prices:
+  claude-haiku-5-5: {input_per_mtok: null, output_per_mtok: null}
+  claude-sonnet-5-5: {input_per_mtok: null, output_per_mtok: null}
+  gemini-2.5-flash: {input_per_mtok: null, output_per_mtok: null}
+  gpt-4o: {input_per_mtok: null, output_per_mtok: null}
+
+# Each tenant is one agency client. Store only the SHA-256 of the key:
+#   python -c "import hashlib,sys;print(hashlib.sha256(sys.argv[1].encode()).hexdigest())" <key>
+tenants:
+  acme-dental:
+    name: Acme Dental (site chatbot)
+    key_sha256: 2bd191576fb49947a4901dffd19232bbf8cf44afc3957add9a91ca76ae5ca8ae  # demo-key-acme-dental
+    allowed_routes: [support-bot]
+    monthly_budget_usd: 25
+    rate_limit_per_min: 60
+    cache: true
+    pii_masking: true
+  northwind-travel:
+    name: Northwind Travel (trip planner)
+    key_sha256: 1311e8868d3b2fd085949ebc6ee6049e93a3624792213420d1d6b857b0d36e50  # demo-key-northwind-travel
+    allowed_routes: [support-bot, smart]
+    monthly_budget_usd: 100
+    rate_limit_per_min: 120
+    cache: true
+    pii_masking: false

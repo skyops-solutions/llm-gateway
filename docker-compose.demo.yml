@@ -1,0 +1,14 @@
+# Demo overlay: mock LLM upstream and demo config. Use: docker compose -f docker-compose.yml -f docker-compose.demo.yml up
+services:
+  gateway:
+    environment:
+      GATEWAY_CONFIG: /app/config/gateway.demo.yaml
+      ADMIN_TOKEN: demo-admin
+      UPSTREAM_TIMEOUT_SECONDS: "5"
+    depends_on: [redis, mock]
+  mock:
+    image: python:3.12-slim
+    working_dir: /app
+    volumes: [./tools:/app:ro]
+    command: sh -c "pip install -q --no-cache-dir fastapi 'uvicorn[standard]' && uvicorn mock_llm:app --host 0.0.0.0 --port 9000 --no-access-log"
+    ports: ["9000:9000"]

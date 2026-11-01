@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LLM Gateway admin</title>
+<style>
+  :root { --bg:#0f1115; --fg:#e6e6e6; --muted:#8a8f98; --line:#262a33; --ok:#3fb950; --warn:#d29922; --bad:#f85149; }
+  body { margin:0; font:14px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--fg); }
+  main { max-width:960px; margin:0 auto; padding:24px 16px; }
+  h1 { font-size:18px; font-weight:600; }
+  table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+  th, td { text-align:left; padding:8px; border-bottom:1px solid var(--line); }
+  th { color:var(--muted); font-weight:500; }
+  .bar { height:6px; background:var(--line); border-radius:3px; overflow:hidden; min-width:80px; }
+  .bar > span { display:block; height:100%; }
+  input, button { font:inherit; padding:6px 10px; background:#181b22; color:var(--fg); border:1px solid var(--line); border-radius:4px; }
+  .muted { color:var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>LLM Gateway: spend by client, this month</h1>
+  <p class="muted">Admin token is kept in this browser tab only.</p>
+  <form id="f"><input id="tok" type="password" placeholder="Admin token" autocomplete="off"> <button>Load</button></form>
+  <p id="err" style="color:var(--bad)"></p>
+  <table id="t" hidden>
+    <thead><tr><th>Client</th><th>Requests</th><th>Cache hits</th><th>Failed</th><th>Spent / budget</th><th></th></tr></thead>
+    <tbody></tbody>
+  </table>
+</main>
+<script>
+const tok = document.getElementById('tok');
+try { tok.value = sessionStorage.getItem('gw_admin') || ''; } catch (e) {}
+async function load() {
+  const err = document.getElementById('err'); err.textContent = '';
+  try { sessionStorage.setItem('gw_admin', tok.value); } catch (e) {}
+  const r = await fetch('/admin/api/summary', { headers: { Authorization: 'Bearer ' + tok.value } });
+  if (!r.ok) { err.textContent = 'Error ' + r.status; return; }
+  const data = await r.json();
+  const tb = document.querySelector('#t tbody'); tb.innerHTML = '';
+  for (const t of data.tenants) {
+    const pct = Math.min(t.budget_used * 100, 100);
+    const color = pct >= 100 ? 'var(--bad)' : pct >= 50 ? 'var(--warn)' : 'var(--ok)';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${t.name}<br><span class="muted">${t.tenant}</span></td><td>${t.requests}</td>
+      <td>${t.cache_hits}</td><td>${t.failed}</td>
+      <td>$${t.spent_usd.toFixed(4)} / $${t.budget_usd}</td>
+      <td><div class="bar"><span style="width:${pct}%;background:${color}"></span></div></td>`;
+    tb.appendChild(tr);
+  }
+  document.getElementById('t').hidden = false;
+}
+document.getElementById('f').addEventListener('submit', e => { e.preventDefault(); load(); });
+if (tok.value) load();
+setInterval(() => { if (tok.value) load(); }, 10000);
+</script>
+</body>
+</html>

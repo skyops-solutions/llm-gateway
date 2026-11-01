@@ -1,0 +1,69 @@
+{{- if .Values.gatewayConfig }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "gw.name" . }}-config
+  labels: {{- include "gw.labels" . | nindent 4 }}
+data:
+  gateway.yaml: |
+{{ .Values.gatewayConfig | indent 4 }}
+---
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "gw.name" . }}
+  labels: {{- include "gw.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxUnavailable: 0, maxSurge: 1}
+  selector:
+    matchLabels: {{- include "gw.selector" . | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "gw.selector" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ .Values.gatewayConfig | sha256sum }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: gateway
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports: [{name: http, containerPort: 8080}]
+          env:
+            - {name: REDIS_URL, value: {{ include "gw.redisUrl" . | quote }}}
+            - {name: GATEWAY_CONFIG, value: /app/config/gateway.yaml}
+          envFrom:
+            - secretRef: {name: {{ .Values.existingSecret }}, optional: true}
+          readinessProbe:
+            httpGet: {path: /readyz, port: http}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 15
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+            {{- if .Values.gatewayConfig }}
+            - {name: config, mountPath: /app/config, readOnly: true}
+            {{- end }}
+      volumes:
+        - {name: tmp, emptyDir: {}}
+        {{- if .Values.gatewayConfig }}
+        - name: config
+          configMap: {name: {{ include "gw.name" . }}-config}
+        {{- end }}

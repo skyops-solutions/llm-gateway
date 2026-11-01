@@ -1,0 +1,43 @@
+image:
+  repository: ghcr.io/skyops-solutions/llm-gateway
+  tag: latest
+  pullPolicy: IfNotPresent
+
+replicaCount: 2
+
+# Name of an existing Secret with ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, ADMIN_TOKEN.
+existingSecret: llm-gateway-secrets
+
+# Gateway config (providers, routes, prices, tenants). Mounted as /app/config/gateway.yaml.
+# If empty, the example config baked into the image is used.
+gatewayConfig: ""
+
+redis:
+  enabled: true
+  image: redis:7.4-alpine
+  # External Redis instead (e.g. ElastiCache): set enabled=false and url.
+  url: ""
+
+resources:
+  requests: {cpu: 100m, memory: 128Mi}
+  limits: {cpu: 500m, memory: 256Mi}
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+service:
+  port: 80
+
+ingress:
+  enabled: false
+  className: nginx
+  host: gateway.example.com
+
+podDisruptionBudget:
+  minAvailable: 1
+
+serviceMonitor:
+  enabled: false
